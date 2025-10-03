@@ -1,7 +1,7 @@
 import { ASSETS_DIR, FIND_CMD } from "../constants.ts";
 import { getCountryLocalityCount } from "./db-client.ts";
 import { extractLocalities } from "./extract.ts";
-import { getCountriesToProcess, getCountryName } from "./country.ts";
+import { getCountriesToProcess } from "./country.ts";
 
 interface LocalityCount {
   countryCode: string;
@@ -46,27 +46,78 @@ async function getPmtilesFileCount(
   }
 }
 
+async function batchGetPmtilesFileCount(
+  countryCodes: string[],
+): Promise<Map<string, number>> {
+  const results = new Map<string, number>();
+  const BATCH_SIZE = 10;
+
+  for (let i = 0; i < countryCodes.length; i += BATCH_SIZE) {
+    const batch = countryCodes.slice(i, i + BATCH_SIZE);
+
+    const batchResults = await Promise.all(
+      batch.map(async (countryCode) => {
+        const count = await getPmtilesFileCount(countryCode);
+        return { countryCode, count };
+      }),
+    );
+
+    batchResults.forEach(({ countryCode, count }) => {
+      results.set(countryCode, count);
+    });
+  }
+
+  return results;
+}
+
 export async function ensureAllLocatitiesPresent(): Promise<void> {
   console.log("Checking localities extraction status...");
 
-  const results: LocalityCount[] = [];
-
   const countriesToCheck = await getCountriesToProcess();
 
-  for (const countryCode of countriesToCheck) {
-    const countryName = await getCountryName(countryCode);
-    const dbCount = await getCountryLocalityCount(countryCode);
-    const fileCount = await getPmtilesFileCount(countryCode);
+  const countryCodes = await import("../../assets/country-codes.json", {
+    with: { type: "json" },
+  });
+  const countryNamesMap = countryCodes.default;
+
+  console.log("Counting pmtiles files...");
+  const fileCountMap = await batchGetPmtilesFileCount(countriesToCheck);
+
+  console.log("Querying database for locality counts...");
+  const dbCountMap = new Map<string, number>();
+
+  const DB_BATCH_SIZE = 50;
+  for (let i = 0; i < countriesToCheck.length; i += DB_BATCH_SIZE) {
+    const batch = countriesToCheck.slice(i, i + DB_BATCH_SIZE);
+
+    const batchResults = await Promise.all(
+      batch.map(async (countryCode) => {
+        const dbCount = await getCountryLocalityCount(countryCode);
+        return { countryCode, dbCount };
+      }),
+    );
+
+    batchResults.forEach(({ countryCode, dbCount }) => {
+      dbCountMap.set(countryCode, dbCount);
+    });
+  }
+
+  const results: LocalityCount[] = countriesToCheck.map((countryCode) => {
+    const countryName =
+      countryNamesMap[countryCode as keyof typeof countryNamesMap] ||
+      countryCode;
+    const dbCount = dbCountMap.get(countryCode) || 0;
+    const fileCount = fileCountMap.get(countryCode) || 0;
     const isComplete = dbCount > 0 && dbCount === fileCount;
 
-    results.push({
+    return {
       countryCode,
       countryName,
       dbCount,
       fileCount,
       isComplete,
-    });
-  }
+    };
+  });
 
   const allComplete = !results.filter((result) => !result.isComplete).length;
 
