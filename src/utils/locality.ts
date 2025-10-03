@@ -11,6 +11,13 @@ interface LocalityCount {
   isComplete: boolean;
 }
 
+function truncateWithEllipsis(text: string, maxLength: number): string {
+  if (text.length <= maxLength) {
+    return text;
+  }
+  return text.substring(0, maxLength - 3) + "...";
+}
+
 async function getPmtilesFileCount(
   countryCode: string,
 ): Promise<number> {
@@ -135,8 +142,9 @@ export async function ensureAllLocatitiesPresent(): Promise<void> {
 
   for (const result of results) {
     const status = result.isComplete ? "✓ Complete" : "✗ Incomplete";
+    const truncatedName = truncateWithEllipsis(result.countryName, 29);
     console.log(
-      `${result.countryCode.padEnd(12)} | ${result.countryName.padEnd(29)} | ` +
+      `${result.countryCode.padEnd(12)} | ${truncatedName.padEnd(29)} | ` +
         `${result.dbCount.toString().padEnd(8)} | ${
           result.fileCount.toString().padEnd(10)
         } | ${status}`,
