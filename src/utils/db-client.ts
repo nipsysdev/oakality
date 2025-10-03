@@ -131,22 +131,28 @@ export async function getLocalities(
   });
 }
 
-export async function getLocalitiesWithBounds(): Promise<LocalityWithBounds[]> {
-  const { sql: baseSql } = buildBaseQuery(false, false);
+export async function getLocalitiesWithBounds(
+  countryCode: string,
+  page: number = 1,
+  limit: number = 1000,
+): Promise<LocalityWithBounds[]> {
+  const { sql: baseSql } = buildBaseQuery(true, false);
 
-  const sql = `
+  let sql = `
     SELECT id, country, min_longitude, min_latitude, max_longitude, max_latitude
     ${baseSql}
-    AND country IS NOT NULL
-    AND country != ''
-    ORDER BY country
   `;
+
+  sql += ` ORDER BY id LIMIT ? OFFSET ?`;
+
+  const offset = (page - 1) * limit;
+  const queryParams: (string | number)[] = [countryCode, limit, offset];
 
   return await executeAsync(() => {
     const stmt = db.prepare(sql);
     const localities: LocalityWithBounds[] = [];
 
-    for (const row of stmt.iter()) {
+    for (const row of stmt.iter(queryParams)) {
       localities.push(row as LocalityWithBounds);
     }
 

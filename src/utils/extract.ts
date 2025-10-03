@@ -1,6 +1,5 @@
 import { ASSETS_DIR, PMTILES_CMD, PROTOMAPS_BUILDS_URL } from "../constants.ts";
 import { getLocalitiesWithBounds, LocalityWithBounds } from "./db-client.ts";
-import { getCountriesToProcess } from "./country.ts";
 
 interface Build {
   key: string;
@@ -95,36 +94,57 @@ async function processBatch<T, R>(
   return results;
 }
 
-export async function extractLocalities(): Promise<void> {
+export async function extractLocalities(
+  countryCodes: string[],
+): Promise<void> {
   console.log("Starting localities extraction...");
 
   const planetPmtilesUrl = await getLatestPlanetPmtilesUrl();
 
-  const localities = await getLocalitiesWithBounds();
-
-  const countriesToProcess = await getCountriesToProcess();
-
-  for (const countryCode of countriesToProcess) {
-    const countryLocalities = localities.filter((loc) =>
-      loc.country === countryCode
-    );
-
-    if (countryLocalities.length === 0) {
-      console.log(`No localities found for ${countryCode}`);
-      continue;
-    }
-
+  for (const countryCode of countryCodes) {
     const countryDir = `${ASSETS_DIR}/localities/${countryCode}`;
     await Deno.mkdir(countryDir, { recursive: true });
 
-    console.log(
-      `Processing ${countryLocalities.length} localities for ${countryCode}...`,
-    );
+    console.log(`Processing localities for ${countryCode}...`);
 
-    await processBatch(
-      countryLocalities,
-      (locality) => extractLocality(locality, planetPmtilesUrl, countryDir),
-      MAX_CONCURRENT_EXTRACTIONS,
+    let page = 1;
+    const limit = 1000;
+    let totalProcessed = 0;
+
+    while (true) {
+      const countryLocalities = await getLocalitiesWithBounds(
+        countryCode,
+        page,
+        limit,
+      );
+
+      if (countryLocalities.length === 0) {
+        if (page === 1) {
+          console.log(`No localities found for ${countryCode}`);
+        }
+        break;
+      }
+
+      console.log(
+        `Processing page ${page} with ${countryLocalities.length} localities for ${countryCode}...`,
+      );
+
+      await processBatch(
+        countryLocalities,
+        (locality) => extractLocality(locality, planetPmtilesUrl, countryDir),
+        MAX_CONCURRENT_EXTRACTIONS,
+      );
+
+      totalProcessed += countryLocalities.length;
+      page++;
+
+      if (countryLocalities.length < limit) {
+        break;
+      }
+    }
+
+    console.log(
+      `Completed processing ${totalProcessed} localities for ${countryCode}`,
     );
   }
 }

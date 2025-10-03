@@ -126,7 +126,9 @@ export async function ensureAllLocatitiesPresent(): Promise<void> {
     };
   });
 
-  const allComplete = !results.filter((result) => !result.isComplete).length;
+  const incompleteCountries = results.filter((result) => !result.isComplete);
+
+  const allComplete = !incompleteCountries.length;
 
   if (allComplete) {
     console.log("✓ All localities have been extracted!");
@@ -160,7 +162,10 @@ export async function ensureAllLocatitiesPresent(): Promise<void> {
   const answer = new TextDecoder().decode(buf.subarray(0, n)).trim();
 
   if (answer.toLowerCase() === "y") {
-    await extractLocalities();
+    const missingCountryCodes = incompleteCountries.map((result) =>
+      result.countryCode
+    );
+    await extractLocalities(missingCountryCodes);
     console.log(
       "Extraction completed.",
     );
