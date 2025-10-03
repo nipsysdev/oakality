@@ -108,7 +108,7 @@ export async function ensureAllLocatitiesPresent(): Promise<void> {
       countryCode;
     const dbCount = dbCountMap.get(countryCode) || 0;
     const fileCount = fileCountMap.get(countryCode) || 0;
-    const isComplete = dbCount > 0 && dbCount === fileCount;
+    const isComplete = dbCount === fileCount;
 
     return {
       countryCode,
