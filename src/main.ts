@@ -6,6 +6,7 @@ import { ensureToolsArePresent } from "./utils/cmd.ts";
 import { ensureDatabaseIsPresent } from "./utils/db.ts";
 import { ensureAllLocatitiesPresent } from "./utils/locality.ts";
 import { closeDatabase } from "./utils/db-client.ts";
+import { cors } from "./middleware/cors.ts";
 
 process.on("SIGINT", exit);
 process.on("SIGTERM", exit);
@@ -16,6 +17,9 @@ await ensureDatabaseIsPresent();
 await ensureAllLocatitiesPresent();
 
 const app = new Application();
+
+app.use(cors());
+
 app.use(Router.routes());
 app.use(Router.allowedMethods());
 
