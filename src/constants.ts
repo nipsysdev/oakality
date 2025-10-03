@@ -2,7 +2,7 @@ import countryCodes from "../assets/country-codes.json" with { type: "json" };
 
 export type CountryCode = keyof typeof countryCodes;
 
-export const PORT = 3000;
+export const PORT = 8080;
 export const ASSETS_DIR = "assets";
 export const PMTILES_CMD = "pmtiles";
 export const BZIP2_CMD = "bzip2";
