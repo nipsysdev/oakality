@@ -55,8 +55,13 @@ Router.get("/countries/:countryCode/localities/:id/pmtiles", async (ctx) => {
   try {
     const countryCode = ctx.params.countryCode;
     const localityId = ctx.params.id;
+    const rangeHeader = ctx.request.headers.get("range");
 
-    const response = await servePmtiles(countryCode, localityId);
+    const response = await servePmtiles(
+      countryCode,
+      localityId,
+      rangeHeader || undefined,
+    );
 
     if (!response) {
       ctx.response.status = 404;
